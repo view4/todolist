@@ -5,17 +5,22 @@ class App extends React.Component {
         this.state = {
             displaying: "create",
             tasks: [],
+            lastIndexOfTask: -1
         }
         this.alternate = this.alternate.bind(this);
         this.addTask = this.addTask.bind(this);
+        this.editTask=this.editTask.bind(this)
 
     }
     componentWillMount() {
         var tasks = localStorage.getItem("tasks");
         tasks = JSON.parse(tasks);
+
         if (tasks != null) {
+            var lastIndexOfTask = tasks.length - 1;
             this.setState({
-                tasks
+                tasks,
+                lastIndexOfTask
             })
         }
     }
@@ -25,13 +30,28 @@ class App extends React.Component {
         localStorage.setItem("tasks", tasks)
     }
     addTask(task) {
+        var lastIndexOfTask = this.state.lastIndexOfTask;
+        lastIndexOfTask++;
+        task.index = lastIndexOfTask;
         var tasks = this.state.tasks.slice();
         tasks.push(task);
+
         this.setState({
-            tasks
+            tasks,
+            lastIndexOfTask
         })
         //add index to the task (used for editing the task later on)
 
+    }
+    editTask(newTask) {
+        console.log(newTask)
+        console.log(newTask.index)
+        var tasks=this.state.tasks;
+        var i=newTask.index
+        tasks[i]=newTask
+        this.setState({
+            tasks
+        })
     }
     alternate(phase) {
         this.setState({
@@ -44,7 +64,7 @@ class App extends React.Component {
                 <Sidebar alternateFunction={this.alternate}/>
                 <div className="main-content" >
                     {
-                        this.state.displaying == "create" ? <Create addToTasks={this.addTask}/> : <Manage tasks={this.state.tasks} />
+                        this.state.displaying == "create" ? <Create addToTasks={this.addTask}/> : <Manage tasks={this.state.tasks} callEditTask={this.editTask}/>
                     }
                 </div>
             </div>
@@ -229,6 +249,11 @@ class Manage extends React.Component {
         super(props)
 
         this.renderTasks = this.renderTasks.bind(this)
+        this.callEditTask=this.callEditTask.bind(this)
+    }
+    callEditTask(newTask) {
+        this.props.callEditTask(newTask);
+        console.log(newTask)
     }
     renderTasks() {
         return this.props.tasks.map((task) => {
@@ -236,6 +261,7 @@ class Manage extends React.Component {
                 <ListElement
                     key={task.id}
                     task={task}
+                    callEditTask={this.props.callEditTask}
                     />
             )
         })
@@ -274,12 +300,18 @@ class ListElement extends React.Component {
             displayInfo: false
         }
         this.toggleTaskDisplay = this.toggleTaskDisplay.bind(this)
+        this.callEditTask = this.callEditTask.bind(this)
+
     }
     toggleTaskDisplay() {
         this.setState({
             displayInfo: !this.state.displayInfo
         })
     }
+    callEditTask(newTask) {
+        this.props.callEditTask(newTask);
+    }
+
     render() {
         return (
             <div className="task-wrapper" >
@@ -299,7 +331,7 @@ class ListElement extends React.Component {
                     </div>
                     <button onClick={() => this.toggleTaskDisplay() }> +</button>
                 </div>
-                {this.state.displayInfo ? <DescriptiveContainer task={this.props.task}/> : null}
+                {this.state.displayInfo ? <DescriptiveContainer task={this.props.task} callEditTask={this.props.callEditTask}/> : null}
 
             </div>
         )
@@ -314,17 +346,21 @@ class DescriptiveContainer extends React.Component {
             enableEditing: false
         }
         this.enableEdit = this.enableEdit.bind(this)
+        this.callEditTask = this.callEditTask.bind(this)
     }
     enableEdit() {
         this.setState({
             enableEditing: !this.state.enableEditing
         })
     }
+    callEditTask(newTask) {
+        this.props.callEditTask(newTask);
+    }
     render() {
 
         return (
             <div className="ninety">
-                {!this.state.enableEditing ? <DescriptiveBox task={this.props.task} callEnableEdit={this.enableEdit}/> : <EditingBox task={this.props.task} callEnableEdit={this.enableEdit}/>}
+                {!this.state.enableEditing ? <DescriptiveBox task={this.props.task} callEnableEdit={this.enableEdit}/> : <EditingBox task={this.props.task} callEnableEdit={this.enableEdit} callEditTask={this.props.callEditTask}/>}
             </div>
         )
     }
@@ -396,13 +432,8 @@ class EditingBox extends React.Component {
     deleteLilOne(textOfLilOne) {
         var specks = this.state.specks;
         var justies = this.state.justies;
-        console.log(specks)
-        console.log(justies)
-        console.log(textOfLilOne)
-        console.log(justies.indexOf(textOfLilOne))
         if (justies != undefined) {
             if (justies.indexOf(textOfLilOne) != -1) {
-                console.log("entered")
                 var index = justies.indexOf(textOfLilOne);
                 justies.splice(index, 1)
             }
@@ -428,11 +459,11 @@ class EditingBox extends React.Component {
             taskDescription: this.description.value,
             taskSpecification: [...this.state.specks, this.specification.value],
             status: this.status.value,
-            date: this.props.task.date
+            date: this.props.task.date,
+            index:this.props.task.index
         }
-        console.log(this.status.value)
-        console.log(this.props.task)
-        console.log(taskObject)
+        
+        this.props.callEditTask(taskObject)
 
         //this is unfinished over here. should send task in a call back to the create component, and replace the existing task. 
     }
@@ -444,7 +475,11 @@ class EditingBox extends React.Component {
         if (type == "just") {
             var element = this.justification.value
             var arrayOfJustifications = this.state.justies.slice();
-            arrayOfJustifications.push(element);
+            if (arrayOfJustifications[0] == "") {
+                arrayOfJustifications[0] = element
+            } else {
+                arrayOfJustifications.push(element);
+            }
             this.setState({
                 justies: arrayOfJustifications
             })
@@ -453,7 +488,13 @@ class EditingBox extends React.Component {
         } else if (type == "speck") {
             var element = this.specification.value
             var arrayOfSpecks = this.state.specks.slice();
-            arrayOfSpecks.push(element);
+            if (arrayOfSpecks[0] == "") {
+                arrayOfSpecks[0] = element
+                //There is a better way to solve this bug, e.g on comp will mount if the first element is ths, then make the array empty. 
+                //why does the bug rise anyway?? 
+            } else {
+                arrayOfSpecks.push(element);
+            }
             this.setState({
                 specks: arrayOfSpecks
             })
@@ -482,7 +523,7 @@ class EditingBox extends React.Component {
             <div className="task-panel" id={`#${this.props.task.id}`}>
                 <div className="col">
                     Status:
-                    <select ref={(input)=>this.status=input}>
+                    <select ref={(input) => this.status = input}>
                         <option value="new">new </option>
                         <option value="active">active</option>
                         <option value="hold">on hold</option>

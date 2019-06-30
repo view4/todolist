@@ -167,7 +167,15 @@ button {
 }
 .new{
     background-color: darkgreen;
-
+}
+.active{
+    background-color: darkorange;
+}
+.hold{
+    background-color: red;
+}
+.completed{
+    background-color: gray;
 }
 .single-argument{
     border:1px solid black;
